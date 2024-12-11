@@ -16,7 +16,8 @@ const nodemailer = require('nodemailer');
 require("dotenv").config();
 const app = express();
 
-const PORT = process.env.PORT || 80;
+
+const PORT = process.env.PORT || 3000;
 
 const initializePassport = require("./passportConfig");
 const { log } = require("console");
@@ -370,71 +371,67 @@ app.post("/register", async (req, res) => {
           let hashedPassword = await bcrypt.hash(password, 10);
 
           pool.query(
-              `SELECT * FROM users
-              WHERE username = $1`,
+              `SELECT * FROM users WHERE username = $1`,
               [username],
               (err, results) => {
                   if (err) {
                       console.log(err);
+                      return res.status(500).send("Database error in user lookup");
                   }
 
                   if (results.rows.length > 0) {
-                      return res.render("register", {
-                          message: "Username already registered"
-                      });
+                      return res.render("register", { message: "Username already registered" });
                   } else {
                       // Insert into users table
                       pool.query(
-                          `INSERT INTO users (username, password, usertype)
-                          VALUES ($1, $2, $3)
-                          RETURNING user_id`,
+                          `INSERT INTO users (username, password, usertype) VALUES ($1, $2, $3) RETURNING user_id`,
                           [username, hashedPassword, usertype],
                           (err, results) => {
                               if (err) {
-                                  throw err;
+                                  console.log(err);
+                                  return res.status(500).send("Database error in user insertion");
                               }
+
                               const userId = results.rows[0].user_id;
 
                               // Insert into appropriate table based on usertype
                               switch (usertype) {
                                   case 'student':
                                       pool.query(
-                                          `INSERT INTO student (user_id, first_name, last_name, student_number, recovery_email, address, age, gender)
-                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                                          `INSERT INTO student (user_id, first_name, last_name, student_number, recovery_email, address, age, gender) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
                                           [userId, firstname, lastname, student_number, recovery_email, address, age, gender],
                                           (err, results) => {
                                               if (err) {
-                                                  throw err;
+                                                  console.log(err);
+                                                  return res.status(500).send("Database error in student registration");
                                               }
                                               req.flash("success_msg", "You are now registered. Please log in");
                                               res.redirect("/");
                                           }
                                       );
                                       break;
-                                      case 'parent':
-                                        // Insert into parent table directly
-                                        pool.query(
-                                            `INSERT INTO parent (user_id, first_name, last_name, recovery_email, address, age, gender)
-                                            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                                            [userId, firstname, lastname, recovery_email, address, age, gender],
-                                            (err, results) => {
-                                                if (err) {
-                                                    throw err;
-                                                }
-                                                req.flash("success_msg", "You are now registered. Please log in");
-                                                res.redirect("/");
-                                            }
-                                        );
-                                        break;
-                                    
-                                  case 'faculty':
+                                  case 'parent':
                                       pool.query(
-                                          `INSERT INTO faculty (user_id, first_name, last_name, recovery_email, address, age, gender)
-                                          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                                          `INSERT INTO parent (user_id, first_name, last_name, recovery_email, address, age, gender) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                                           [userId, firstname, lastname, recovery_email, address, age, gender],
                                           (err, results) => {
                                               if (err) {
-                                                  throw err;
+                                                  console.log(err);
+                                                  return res.status(500).send("Database error in parent registration");
+                                              }
+                                              req.flash("success_msg", "You are now registered. Please log in");
+                                              res.redirect("/");
+                                          }
+                                      );
+                                      break;
+                                  case 'faculty':
+                                      pool.query(
+                                          `INSERT INTO faculty (user_id, first_name, last_name, recovery_email, address, age, gender) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                                          [userId, firstname, lastname, recovery_email, address, age, gender],
+                                          (err, results) => {
+                                              if (err) {
+                                                  console.log(err);
+                                                  return res.status(500).send("Database error in faculty registration");
                                               }
                                               req.flash("success_msg", "You are now registered. Please log in");
                                               res.redirect("/");
@@ -456,6 +453,7 @@ app.post("/register", async (req, res) => {
       }
   }
 });
+
 
 app.post(
   "/login",
