@@ -43,6 +43,9 @@ const upload = multer({ storage }).single("image");
 // const upload = multer({ storage: imageStorage }).single('image');
 
 
+
+
+
 const xlsxStorage = multer.diskStorage({
   destination: './uploads/xlsx',
   filename: function (req, file, cb) {
